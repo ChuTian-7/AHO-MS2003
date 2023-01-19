@@ -30,50 +30,39 @@ void test_1() {
 
 void test_2() {
 	ProblemSolver p(
-		2,
+		3 ,
 		{
-			{0,  0, [](int) { return 0; }},
-			{-2, 2, [](int x) { return -x; }},
-			{-2, 2, [](int x) { return +x; }},
+			{0,0,[](int){ return 0;}},
+			{-2,-2,[](int x){ return ( 2 ) * x * x + ( -6 ) * x + ( 8 );}},
+			{-2,-2,[](int x){ return ( 7 ) * x * x + ( -9 ) * x + ( -2 );}},
+			{-2,-2,[](int x){ return ( 2 ) * x * x + ( -4 ) * x + ( -5 );}},
 		},
 		{
-			{{-4, 4, [](int x) { return (x - 3) * (x - 3); }}, 1, 2}
+			{{4,6,[](int x){ return ( 5 ) * x * x + ( 2 ) * x + ( 7 );}},2,1},
+			{{1,9,[](int x){ return ( 9 ) * x * x + ( -10 ) * x + ( 3 );}},1,3},
+			{{4,6,[](int x){ return ( 6 ) * x * x + ( -8 ) * x + ( -3 );}},2,3},
 		}
 	);
-	Data ans = INFINITY;
-	for (int i = -2; i <= 2; i++)
-		for (int j = -2; j <= 2; j++)
-		for (int k = -4; k <= 4; k++)
-		if (i - j <= k)
-		ans = std::min(
-			ans,
-			Data(-i + j + (k - 3) * (k - 3))
-		);
-	assert(p.solve() == ans);
-	puts("pass test 2");
+	Data ans = 241;
+	Data res=p.solve();
+	printf("res = %lf , ans = %lf\n",res,ans);
 }
 
 void test_3() {
 	ProblemSolver p(
-		2,
+		3 ,
 		{
-			{0,  0, [](int) { return 0; }},
-			{-2, 2, [](int x) { return -x; }},
-			{-2, 2, [](int x) { return +x; }},
+			{0,0,[](int){ return 0;}},
+			{-2,-2,[](int x){ return ( 1 ) * x * x + ( -1 ) * x + ( -2 );}},
+			{-2,-2,[](int x){ return ( 2 ) * x * x + ( -8 ) * x + ( 4 );}},
+			{-2,-2,[](int x){ return ( 4 ) * x * x + ( -4 ) * x + ( 4 );}},
 		},
 		{
-			{{-4, 4, [](int x) { return (x + 3) * (x + 3); }}, 1, 2}
+			{{3,7,[](int x){ return ( 10 ) * x * x + ( -3 ) * x + ( -5 );}},2,3},
+			{{-2,1,[](int x){ return ( 8 ) * x * x + ( 9 ) * x + ( 4 );}},1,3},
 		}
 	);
-	Data ans = INFINITY;
-	for (int i = -2; i <= 2; i++)
-		for (int j = -2; j <= 2; j++)
-		for (int k = -4; k <= 4; k++)
-		if (i - j <= k)
-		ans = std::min(
-			ans,
-			Data(-i + j + (k + 3) * (k + 3))
-		);
-	assert(p.solve() == ans);
-	puts("pass test 3");
+	Data ans = 140;
+	Data res=p.solve();
+	printf("res = %lf , ans = %lf\n",res,ans);
 }

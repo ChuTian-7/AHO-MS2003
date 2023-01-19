@@ -1,0 +1,41 @@
+#include "brute_force.hpp"
+#include <cstdio>
+
+BruteForce::BruteForce(Graph G):G_(G){};
+
+void BruteForce::ChangeGraph(Graph G){
+  G_=G;
+};
+
+double BruteForce::Solve(std::vector<int> & v){
+  std::vector<int> value(G_.n_+G_.m_);
+  double ans=1e9;
+  std::function<void(int,int)> dfs = [&,this](int p,double sum){
+    if(p==G_.n_+G_.m_){
+      if(ans>sum){
+        ans=sum;
+        v=value;
+      }
+      return;
+    }
+    if(p<G_.n_){
+      auto x=G_.node_[p+1];
+      for(int i=x.l_;i<=x.r_;i++){
+        value[p]=i;
+        dfs(p+1,sum+x.F_(i));
+      }
+    }
+    else{
+      auto x=G_.edge_[p-G_.n_];
+      for(int i=x.l_;i<=x.r_;i++){
+        if(value[x.u_-1]-value[x.v_-1]>i){
+          continue;
+        }
+        value[p]=i;
+        dfs(p+1,sum+x.F_(i));
+      }
+    }
+  };
+  dfs(0,0);
+  return ans;
+}
