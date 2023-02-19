@@ -1,27 +1,35 @@
 #include "Flow.hpp"
+#include <bit>
+#include <cassert>
 #include <cmath>
 #include <limits>
 
-Flow::Flow(size_t n, Data M, int U, std::vector<ωLimit> limits)
-		: n(n), M(M), ε(U), U(U), nodes(n + 1), imbalances(n + 1), current_edge(n + 1), uq(n + 1), fa(n + 1, -1) {
-	edges.reserve(limits.size() * 2);
-	flows.resize (limits.size() * 2);
+AHO_MS2003::Flow::Flow(size_t n_, Data M_, int U_, std::vector<OmegaLimit> limits_)
+		: n(n_), M(M_), epsilon(1), nodes(n + 1), imbalances(n + 1),
+		  current_edge(n + 1), uq(n + 1), fa(n + 1, -1), edges(std::move(limits_))
+{
+	while (epsilon < 2 * int(n + 1) * U_) {
+		epsilon *= 2;
+		assert(epsilon != 0);
+	}
+	assert((epsilon / 2 / int(n + 1) >= U_));
+	
+	edges.resize(edges.size() * 2);
+	flows.resize(edges.size());
+	for (size_t i = edges.size(); i; ) {
+		i -= 2;
+		edges[i + 1] = edges[i] = edges[i / 2];
+		edges[i + 1].reverse();
+	}
+	
 	G.resize(n + 1);
 	scaling.resize(n + 1);
-	
-	for (auto edge: limits) {
-		G[edge.i].push_back(edges.size());
-		edges.push_back(edge);
-		
-		edge.reverse();
-		
-		G[edge.i].push_back(edges.size());
-		edges.push_back(edge);
-	}
+	for (size_t e_id = 0; e_id < edges.size(); ++e_id)
+		G[edges[e_id].i].push_back(e_id);
 }
 
-Data Flow::min_cost() {
-	for (; ε * (n + 1) >= Data(1); ε /= 2) {
+Data AHO_MS2003::Flow::min_cost() {
+	for (; epsilon >= 2; epsilon /= 2) {
 		initialization();
 		push_all_admissible_edge();
 		refine();
@@ -38,7 +46,7 @@ Data Flow::min_cost() {
 	return answer;
 }
 
-void Flow::initialization() {
+void AHO_MS2003::Flow::initialization() {
 	// 部分变量在迭代前后不变。
 	for (size_t i = 0; i <= n; ++i)
 		nodes[i].init(std::numeric_limits<Data>::infinity());
@@ -48,7 +56,7 @@ void Flow::initialization() {
 	// std::fill(fa.begin(), fa.end(), -1);
 }
 
-void Flow::push_all_admissible_edge() {
+void AHO_MS2003::Flow::push_all_admissible_edge() {
 	for (size_t e_id = 0; e_id < edges.size(); ++e_id) {
 		auto &e = edges[e_id];
 		auto _q = q(e_id);
@@ -63,7 +71,7 @@ void Flow::push_all_admissible_edge() {
 			uq.push(i);
 }
 
-void Flow::refine() {
+void AHO_MS2003::Flow::refine() {
 	while (not uq.empty()) {
 		choice_operator(uq.front());
 		if (imbalances[uq.front()] == 0)
@@ -75,7 +83,7 @@ void Flow::refine() {
 			cut(i);
 }
 
-void Flow::choice_operator(size_t p) {
+void AHO_MS2003::Flow::choice_operator(size_t p) {
 	for (; current_edge[p] < G[p].size(); ++current_edge[p]) {
 		auto e_id = G[p][current_edge[p]];
 		if (q(e_id) > 0)
@@ -84,8 +92,8 @@ void Flow::choice_operator(size_t p) {
 	update_scaling(p);
 }
 
-void Flow::send(size_t p) {
-	auto root_id = nodes[p].find_root() - nodes.data();
+void AHO_MS2003::Flow::send(size_t p) {
+	size_t root_id = nodes[p].find_root() - nodes.data();
 	// 从 p 点推 x 单位流至根节点。
 	auto push = [&](Data x) {
 		nodes[p].add_val_way_to_root(-x);
@@ -106,7 +114,7 @@ void Flow::send(size_t p) {
 	}
 }
 
-void Flow::update_scaling(size_t p) {
+void AHO_MS2003::Flow::update_scaling(size_t p) {
 	// 如论文二 p15 第二段最后一句话。
 	for (auto e_id : G[p]) {
 		auto cut_p = edges[e_id].j;
@@ -114,27 +122,30 @@ void Flow::update_scaling(size_t p) {
 			cut(cut_p);
 	}
 	// 在`cut`之后修改。因其需要之前的`q`，其又需要之前的`scaling`。
-	scaling[p] += ε / 2;
+	scaling[p] += epsilon / 2;
 	current_edge[p] = 0;
 }
 
-Data Flow::q(size_t e_id) {
+Data AHO_MS2003::Flow::q(size_t e_id) const {
 	auto &e = edges[e_id];
+	auto ceil_div = [](int num, int denom) {
+		return num / denom + (num % denom > 0);
+	};
 	// 论文中该值为  ⌊...⌋，但  ⌈...⌉-1 同样满足要求。
 	// 且其在 ... 为 [l,u] 中的整数时避免了对拉伸后价格为零的部分流量的推流。
-	int t = std::ceil(scaling[e.i] - scaling[e.j]) - 1;
+	int t = ceil_div(scaling[e.i] - scaling[e.j], 2 * (n + 1)) - 1;
 	// 下面两个条件语句起到了论文第一章假设二的作用。
 	if (t + 1 > e.u)return M - flows[e_id];
 	if (t < e.l)return 0;
 	return std::max(Data(0), e.fn(t+1) - e.fn(t) - flows[e_id]);
 }
 
-void Flow::add_flow_of_edge(size_t e_id, Data flow_add) {
+void AHO_MS2003::Flow::add_flow_of_edge(size_t e_id, Data flow_add) {
 	flows[e_id] += flow_add;
 	flows[e_id ^ 1] = -flows[e_id];
 }
 
-void Flow::link(size_t p) {
+void AHO_MS2003::Flow::link(size_t p) {
 	auto e_id = G[p][current_edge[p]];
 	auto &e = edges[e_id];
 	fa[p] = e.j;
@@ -143,7 +154,7 @@ void Flow::link(size_t p) {
 	nodes[p].set_fa(&nodes[e.j]);
 }
 
-void Flow::cut(size_t p) {
+void AHO_MS2003::Flow::cut(size_t p) {
 	fa[p] = -1;
 	nodes[p].cut();
 	

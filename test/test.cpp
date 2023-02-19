@@ -1,52 +1,26 @@
+#include <cmath>
 #include <testa.hpp>
 #include <ProblemSolver.hpp>
-#include <sstream>
+#include "Graph.hpp"
+#include "SimpleSolver.hpp"
+#include "generator.hpp"
 
-struct G {
-	size_t n;
-	std::vector<μLimit> μs;
-	std::vector<ωLimit> ωs;
-	
-	void prettyPrint(std::string& out) const {
-		std::stringstream ss;
-		ss << "{"; {
-			ss << "n: " << n <<"; ";
-			ss << "{"; for (auto& limit : μs) {
-				ss << "{";
-				ss << "l:" << limit.l << ",";
-				ss << "u:" << limit.u << ",";
-				ss << "F:#";
-				ss << "},";
-			} ss << "}; ";
-			ss << "m: " << ωs.size() <<"; ";
-			ss << "{"; for (auto& limit : ωs) {
-				ss << "{";
-				ss << "i:" << limit.i << ",";
-				ss << "j:" << limit.j << ",";
-				ss << "l:" << limit.l << ",";
-				ss << "u:" << limit.u << ",";
-				ss << "B:#";
-				ss << "},";
-			} ss << "}; ";
-		} ss << "}";
-		out += ss.str();
-	}
-};
+namespace AHO_MS2003 {
 
 class Test {
 public:
 	// Complexity: O(U^n * m)
-	static std::optional<Data> bf_solve(const G& g) {
-		auto& [n, μs, _ωs] = g;
-		auto ωs = _ωs;
+	static std::optional<Data> bf_solve(const Graph& g) {
+		auto& [n, _m, Mus, _Omegas, _info] = g;
+		auto Omegas = _Omegas;
 		Data ret = INFINITY;
 		
-		for(auto& it : ωs) it.pre_processing();
+		for(auto& it : Omegas) it.pre_processing();
 		
 		std::vector<int> v(n + 1);
 		std::function<void(size_t, Data)> dfs = [&](size_t p, Data now_sum) {
 			if (p == n) {
-				for (auto& it : ωs) {
+				for (auto& it : Omegas) {
 					int x = v[it.i] - v[it.j];
 					if (x > it.u)
 						return;
@@ -56,8 +30,8 @@ public:
 				return;
 			}
 			p++;
-			for (auto &i = v[p] = μs[p].l; i <= μs[p].u; i++)
-				dfs(p, now_sum + μs[p].fn(i));
+			for (auto &i = v[p] = Mus[p].l; i <= Mus[p].u; i++)
+				dfs(p, now_sum + Mus[p].fn(i));
 		};
 		dfs(0, 0);
 		
@@ -65,18 +39,32 @@ public:
 			return std::nullopt;
 		return {ret};
 	}
-	static std::optional<Data> fast_solve(const G& g) {
-		auto& [n, μs, ωs] = g;
-		ProblemSolver ps(n, μs, ωs);
+	// Complexity: O(n * m * U * log^2)
+	static std::optional<Data> simple_solve(const Graph& g) {
+		SimpleSolver ms(g);
+		auto ret = ms.Solve();
+		
+		if (std::isnan(ret))
+			return std::nullopt;
+		return {ret};
+	}
+	static std::optional<Data> fast_solve(const Graph& g) {
+		auto& [n, _m, Mus, Omegas, _info] = g;
+		AHO_MS2003::ProblemSolver ps(n, Mus, Omegas);
 		return ps.solve();
 	}
 };
+
+}
+
+using AHO_MS2003::Test;
 
 TESTA_DEF_EQ_1(
 	empty_graph,
 	Test::bf_solve,
 	Test::fast_solve,
-	(G{
+	(Graph{
+		0,
 		0,
 		{{}},
 		{}
@@ -87,8 +75,9 @@ TESTA_DEF_EQ_1(
 	single_node_graph_1,
 	Test::bf_solve,
 	Test::fast_solve,
-	(G{
+	(Graph{
 		1,
+		0,
 		{
 			{},
 			{-9, 9, [](int) { return 1; }},
@@ -101,8 +90,9 @@ TESTA_DEF_EQ_1(
 	single_node_graph_2,
 	Test::bf_solve,
 	Test::fast_solve,
-	(G{
+	(Graph{
 		1,
+		0,
 		{
 			{},
 			{-9, 9, [](int x) { return (x - 1.2) * (x - 1.2) + 3.4; }},
@@ -115,8 +105,9 @@ TESTA_DEF_EQ_1(
 	mini_graph_1,
 	Test::bf_solve,
 	Test::fast_solve,
-	(G{
+	(Graph{
 		2,
+		1,
 		{
 			{},
 			{-2, 2, [](int x) { return -x; }},
@@ -132,8 +123,9 @@ TESTA_DEF_EQ_1(
 	mini_graph_2,
 	Test::bf_solve,
 	Test::fast_solve,
-	(G{
+	(Graph{
 		2,
+		1,
 		{
 			{},
 			{-2, 2, [](int x) { return -x; }},
@@ -149,7 +141,8 @@ TESTA_DEF_EQ_1(
 	mini_graph_3,
 	Test::bf_solve,
 	Test::fast_solve,
-	(G{
+	(Graph{
+		3,
 		3,
 		{
 			{},
@@ -169,7 +162,8 @@ TESTA_DEF_EQ_1(
 	mini_graph_4,
 	Test::bf_solve,
 	Test::fast_solve,
-	(G{
+	(Graph{
+		4,
 		4,
 		{
 			{},
@@ -191,8 +185,9 @@ TESTA_DEF_EQ_1(
 	mini_graph_5,
 	Test::bf_solve,
 	Test::fast_solve,
-	(G{
+	(Graph{
 		5,
+		6,
 		{
 			{},
 			{ -8,   0, [](int x) { return 5 * x * x +  2 * x +  1; }},
@@ -216,8 +211,9 @@ TESTA_DEF_EQ_1(
 	no_solution_1,
 	Test::bf_solve,
 	Test::fast_solve,
-	(G{
+	(Graph{
 		2,
+		1,
 		{
 			{},
 			{0, 0, [](int) { return 0; }},
@@ -233,7 +229,8 @@ TESTA_DEF_EQ_1(
 	no_solution_2,
 	Test::bf_solve,
 	Test::fast_solve,
-	(G{
+	(Graph{
+		2,
 		2,
 		{
 			{},
@@ -251,8 +248,9 @@ TESTA_DEF_EQ_1(
 	no_solution_3,
 	Test::bf_solve,
 	Test::fast_solve,
-	(G{
+	(Graph{
 		3,
+		2,
 		{
 			{},
 			{0, 0, [](int) { return 0; }},
@@ -265,3 +263,87 @@ TESTA_DEF_EQ_1(
 		}
 	})
 );
+
+using std::string;
+using std::function;
+using std::tuple;
+using std::optional;
+
+void SmallGen1(const string &name, function<void(const Graph&)> cs) {
+	int n = (name.substr(0, 7) == "Compare" ? 10000 : 100);
+	for(int i = 1; i <= n; i++) {
+		cs(TinyGen(5, 10, 0, { -2, 2 }, { -2, 6 }, { -10, 10 }, i));
+	}
+}
+
+void SmallGen2(const string &name, function<void(const Graph&)> cs) {
+	int n = (name.substr(0, 7) == "Compare" ? 10000 : 100);
+	for(int i = 1; i <= n; i++) {
+		cs(TinyGen(4, 10, 1, { -2, 2 }, { -2, 6 }, { -10, 10 }, i));
+	}
+}
+
+void HugeGen1(const string &name, function<void(const Graph&)> cs) {
+	int n = (name.substr(0, 7) == "Compare" ? 1000 : 10);
+	for(int i = 1; i <= n; i++) {
+		cs(TinyGen(50, 100, 0, { -20, 20 }, { -20, 60 }, { -100, 100 }, i));
+	}
+}
+
+void HugeGen2(const string &name, function<void(const Graph&)> cs) {
+	int n = (name.substr(0, 7) == "Compare" ? 1000 : 10);
+	for(int i = 1; i <= n; i++) {
+		cs(TinyGen(50, 200, 1, { -20, 20 }, { -20, 60 }, { -100, 100 }, i));
+	}
+}
+
+void HugeGen3(const string &name, function<void(const Graph&)> cs) {
+	int n = (name.substr(0, 7) == "Compare" ? 100 : 10);
+	for(int i = 1; i <= n; i++) {
+		cs(TinyGen(100, 300, 1, { -40, 40 }, { -40, 40 }, { -100, 100 }, i));
+	}
+}
+
+void BFVerifier(const optional<Data> &res, const Graph &in) {
+	auto ans = Test::bf_solve(in);
+	TESTA_ASSERT(res == ans)
+		(res)
+		(ans)
+		(in.info)
+		.issue();
+}
+
+void SimpleVerifier(const optional<Data> &res, const Graph &in) {
+	auto ans = Test::simple_solve(in);
+	TESTA_ASSERT(res == ans)
+		(res)
+		(ans)
+		(in.info)
+		.issue();
+}
+
+void ImproveVerifier(const optional<Data> &res, const Graph &in) {
+	auto ans = Test::fast_solve(in);
+	TESTA_ASSERT(res == ans)
+		(res)
+		(ans)
+		(in.info)
+		.issue();
+}
+
+
+TESTA_DEF_VERIFY_WITH_TB(SimpleCorrectTest1, SmallGen1, BFVerifier, Test::simple_solve);
+TESTA_DEF_VERIFY_WITH_TB(ImproveCorrectTest1, SmallGen1, BFVerifier, Test::fast_solve);
+TESTA_DEF_VERIFY_WITH_TB(SimpleCorrectTest2, SmallGen2, BFVerifier, Test::simple_solve);
+TESTA_DEF_VERIFY_WITH_TB(ImproveCorrectTest2, SmallGen2, BFVerifier, Test::fast_solve);
+TESTA_DEF_VERIFY_WITH_TB(CompareTest1, SmallGen1, SimpleVerifier, Test::fast_solve);
+TESTA_DEF_VERIFY_WITH_TB(CompareTest2, SmallGen2, SimpleVerifier, Test::fast_solve);
+TESTA_DEF_VERIFY_WITH_TB(CompareTest3, HugeGen1, SimpleVerifier, Test::fast_solve);
+TESTA_DEF_VERIFY_WITH_TB(CompareTest4, HugeGen2, SimpleVerifier, Test::fast_solve);
+TESTA_DEF_VERIFY_WITH_TB(CompareTest5, HugeGen3, SimpleVerifier, Test::fast_solve);
+TESTA_DEF_VERIFY_WITH_TB(Simple_TimeTest1, HugeGen1, SimpleVerifier, Test::simple_solve);
+TESTA_DEF_VERIFY_WITH_TB(Improve_TimeTest1, HugeGen1, ImproveVerifier, Test::fast_solve);
+TESTA_DEF_VERIFY_WITH_TB(Simple_TimeTest2, HugeGen2, SimpleVerifier, Test::simple_solve);
+TESTA_DEF_VERIFY_WITH_TB(Improve_TimeTest2, HugeGen2, ImproveVerifier, Test::fast_solve);
+TESTA_DEF_VERIFY_WITH_TB(Simple_TimeTest3, HugeGen3, SimpleVerifier, Test::simple_solve);
+TESTA_DEF_VERIFY_WITH_TB(Improve_TimeTest3, HugeGen3, ImproveVerifier, Test::fast_solve);

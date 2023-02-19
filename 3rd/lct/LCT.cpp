@@ -2,7 +2,6 @@
 //! in 3.5.7
 
 #include "LCT.hpp"
-#include <algorithm>
 #include <cassert>
 
 void LCT::Node::init(Data _val) {
@@ -80,7 +79,7 @@ void LCT::Node::update_add(Data w) {
 }
 
 void LCT::Node::push_down() {
-	if (add) {
+	if (add != 0) {
 		if (ch[0]) ch[0]->update_add(add);
 		if (ch[1]) ch[1]->update_add(add);
 		add = 0;
@@ -95,11 +94,11 @@ void LCT::Node::push_down_from_root() {
 
 void LCT::Node::rot() {
 	Node *f = fa, *ff = fa->fa;
-	int c = d();
+	int c = d(), cc = (ff&&fa->d());
 	f->setc(ch[!c], c);
 	this->setc(f, !c);
-	if (ff && ff->ch[c = fa->d()] == f)
-		ff->setc(this, c);
+	if (ff && ff->ch[cc] == f)
+		ff->setc(this, cc);
 	else
 		this->fa = ff;
 	f->push_up();
